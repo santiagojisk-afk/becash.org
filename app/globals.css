@@ -1,26 +1,29 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* tokens del mock */
+:root{
+--bg: #f5f7fa;
+--panel: #ffffff;
+--stroke: rgba(16,36,85,.10);
+--blue: #2D6CDF;
+--text: #0B1530;
+--soft: #7A89A8;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+/* reset mínimo */
+*{ box-sizing: border-box; }
+html,body{ height:100%; }
+body{ margin:0; background:var(--bg); color:var(--text); }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* helpers */
+.card{
+@apply bg-white shadow-card rounded-xl;
 }
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.btn-primary{
+@apply bg-brand text-white font-semibold rounded-lg px-4 py-2 hover:bg-blue-600 transition;
+}
+.input{
+@apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand;
 }
