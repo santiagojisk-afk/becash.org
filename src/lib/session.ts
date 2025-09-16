@@ -1,13 +1,39 @@
-'use client';
-import { createContext, useContext, useEffect, useState } from 'react';
-type User = { username:string; fullName?:string };
-type Session = { user?:User; accessToken?:string };
+"use client";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
-const Ctx = createContext<{session:Session; setSession:(s:Session)=>void}>({session:{}, setSession:()=>{}});
-export function SessionProvider({children}:{children:React.ReactNode}) {
-  const [session,setSession]=useState<Session>({});
-  useEffect(()=>{ const r=localStorage.getItem('qash_session'); if(r) setSession(JSON.parse(r)); },[]);
-  useEffect(()=>{ localStorage.setItem('qash_session', JSON.stringify(session)); },[session]);
-  return <Ctx.Provider value={{session,setSession}}>{children}</Ctx.Provider>;
+type Session = {
+user?: string;
+token?: string;
+};
+
+const SessionCtx = createContext<{
+session: Session | null;
+setSession: (s: Session | null) => void;
+}>({
+session: null,
+setSession: () => {},
+});
+
+export function SessionProvider({ children }: { children: ReactNode }) {
+const [session, setSession] = useState<Session | null>(null);
+
+useEffect(() => {
+const s = localStorage.getItem("qash_session");
+if (s) setSession(JSON.parse(s));
+}, []);
+
+useEffect(() => {
+if (session) localStorage.setItem("qash_session", JSON.stringify(session));
+else localStorage.removeItem("qash_session");
+}, [session]);
+
+return (
+<SessionCtx.Provider value={{ session, setSession }}>
+{children}
+</SessionCtx.Provider>
+);
 }
-export function useSession(){ return useContext(Ctx); }
+
+export function useSession() {
+return useContext(SessionCtx);
+}
