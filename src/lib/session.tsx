@@ -1,4 +1,4 @@
-'use client'
+'use client';
 
 import { createContext, useContext, useEffect, useState } from "react";
 
@@ -19,12 +19,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 const [session, setSession] = useState<Session | null>(null);
 
 useEffect(() => {
-const r = localStorage.getItem("qash_session");
-if (r) setSession(JSON.parse(r));
+try {
+const raw = localStorage.getItem("qash_session");
+if (raw) setSession(JSON.parse(raw));
+} catch {}
 }, []);
 
 useEffect(() => {
+try {
 if (session) localStorage.setItem("qash_session", JSON.stringify(session));
+} catch {}
 }, [session]);
 
 return (

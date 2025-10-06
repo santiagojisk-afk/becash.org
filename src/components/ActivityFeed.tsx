@@ -1,104 +1,85 @@
+// src/components/ActivityFeed.tsx
 "use client";
+
 import { useEffect, useState } from "react";
-import type { Tx } from "@/types";
-import { apiFetch } from "@/lib/api";
-import Avatar from "./Avatar";
+import { getTransactions } from "@/lib/http";
 
-export default function ActivityFeed({
-  token,
-  username,
-}: {
-  token: string;
-  username: string;
-}) {
-  const [txs, setTxs] = useState<Tx[]>([]);
-  const [msg, setMsg] = useState<string | null>(null);
+type Tx = {
+id: string;
+from: string;
+to: string;
+amount: number;
+currency: string;
+note?: string;
+status: "pending" | "completed" | "failed";
+createdAt: string;
+type: "sent" | "received" | "topup" | "cashout";
+};
 
-  async function load() {
-    setMsg("Cargando…");
+export default function ActivityFeed({ username }: { username: string }) {
+const [loading, setLoading] = useState(false);
+const [txs, setTxs] = useState<Tx[]>([]);
+const [error, setError] = useState<string | null>(null);
 
-    const r = await apiFetch(
-      `/api/transactions?user=${encodeURIComponent(username)}`,
-      {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      }
-    );
+useEffect(() => {
+let stop = false;
+async function run() {
+if (!username) return;
+setLoading(true);
+setError(null);
 
-    if (r.ok) {
-      setTxs(r.body?.transactions || r.body || []);
-      setMsg(null);
-    } else {
-      setMsg("No se pudo cargar actividad");
-    }
-  }
+const r = await getTransactions(username);
+if (!r.ok || r.data?.ok === false) {
+if (!stop) setError(r.data?.message || "No se pudo cargar actividad");
+} else if (!stop) {
+setTxs(r.data.transactions || []);
+}
+if (!stop) setLoading(false);
+}
+run();
+return () => { stop = true; };
+}, [username]);
 
-  useEffect(() => {
-    load();
-  }, []);
+if (!username) return null;
 
-  async function react(id: string) {
-    // FUTURO: POST /api/tx/:id/react { like: true }
-    setTxs((list) =>
-      list.map((t) =>
-        t.id === id
-          ? {
-              ...t,
-              likedByMe: !t.likedByMe,
-              likes: (t.likes || 0) + (t.likedByMe ? -1 : 1),
-            }
-          : t
-      )
-    );
-  }
+return (
+<div className="space-y-3">
+{loading && <div className="subtle">Cargando actividad…</div>}
+{error && <div className="text-red-600 text-sm">Error: {error}</div>}
+{txs.length === 0 && !loading ? (
+<div className="subtle">No hay movimientos todavía.</div>
+) : null}
 
-  return (
-    <div className="card">
-      <div className="row" style={{ justifyContent: "space-between" }}>
-        <b>Actividad</b>
-        <button className="btn btn-ghost" onClick={load}>
-          Actualizar
-        </button>
-      </div>
-      {msg && <div className="badge">{msg}</div>}
-      <div className="grid">
-        {txs.map((tx) => (
-          <div
-            key={tx.id}
-            className="row"
-            style={{ borderBottom: "1px dashed var(--stroke)", paddingBottom: 8 }}
-          >
-            <Avatar src={tx.from?.avatarUrl} sex={tx.from?.sex} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 800 }}>
-                @{tx.from?.username} → @{tx.to?.username}
-              </div>
-              <div style={{ color: "var(--soft)", fontSize: 12 }}>
-                {new Date(tx.createdAt).toLocaleString()} · {tx.method} ·{" "}
-                {tx.note || "—"}
-              </div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontWeight: 900 }}>
-                {(tx.amount ?? 0).toLocaleString(undefined, {
-                  style: "currency",
-                  currency: tx.currency || "MXN",
-                })}
-              </div>
-              <div
-                className="row"
-                style={{ justifyContent: "flex-end", gap: 6 }}
-              >
-                <button className="btn btn-ghost" onClick={() => react(tx.id)}>
-                  {tx.likedByMe ? "👍" : "👍🏻"} {tx.likes || 0}
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-        {!txs.length && !msg && (
-          <div className="badge">Sin movimientos</div>
-        )}
-      </div>
-    </div>
-  );
+<ul className="space-y-2">
+{txs.map((t) => (
+<li key={t.id} className="flex items-center gap-3 p-3 rounded-lg border border-gray-200">
+<img src="/default-profile.png" alt="avatar" className="w-10 h-10 rounded-full object-cover" />
+
+<div className="flex-1 min-w-0">
+<div className="text-sm font-medium truncate">
+{t.type === "sent"
+? `Enviaste a ${t.to}`
+: t.type === "received"
+? `Recibiste de ${t.from}`
+: t.type === "topup"
+? `Depósito`
+: `Retiro`}
+</div>
+<div className="text-xs text-gray-500 truncate">
+{new Date(t.createdAt).toLocaleString()} • {t.status}
+{t.note ? ` • ${t.note}` : ""}
+</div>
+</div>
+
+<div className="text-right">
+<div className="text-sm font-semibold">
+{t.type === "sent" ? "-" : "+"}
+{t.amount.toFixed(2)} {t.currency}
+</div>
+</div>
+</li>
+))}
+</ul>
+</div>
+);
 }

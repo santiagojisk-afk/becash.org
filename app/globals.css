@@ -2,28 +2,53 @@
 @tailwind components;
 @tailwind utilities;
 
-/* tokens del mock */
-:root{
---bg: #f5f7fa;
---panel: #ffffff;
---stroke: rgba(16,36,85,.10);
---blue: #2D6CDF;
---text: #0B1530;
---soft: #7A89A8;
+/* ===== Variables de marca Qash ===== */
+:root {
+--bg: #f5f7fa; /* fondo general */
+--card: #ffffff; /* tarjetas */
+--brand: #2563eb;/* azul primario */
+--text: #111827; /* texto principal */
+--muted: #6b7280;/* texto secundario */
+--ring: rgba(59,130,246,.15); /* focus ring */
 }
 
-/* reset mínimo */
-*{ box-sizing: border-box; }
-html,body{ height:100%; }
-body{ margin:0; background:var(--bg); color:var(--text); }
+body {
+background: var(--bg);
+color: var(--text);
+font-family: Inter, system-ui, sans-serif;
+margin: 0;
+}
 
-/* helpers */
-.card{
-@apply bg-white shadow-card rounded-xl;
+/* ===== Utilidades globales ===== */
+.input {
+@apply w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400;
 }
-.btn-primary{
-@apply bg-brand text-white font-semibold rounded-lg px-4 py-2 hover:bg-blue-600 transition;
+
+.btn-primary {
+@apply inline-block w-full px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold border-none cursor-pointer;
 }
-.input{
-@apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand;
+.btn-primary:disabled {
+@apply opacity-60 cursor-not-allowed;
+}
+
+.card {
+@apply bg-white rounded-2xl shadow p-6;
+}
+
+/* ===== FIXES de barra inferior ===== */
+/* 1) Oculta cualquier barra antigua que venga de componentes viejos (clase sticky-bar) */
+.sticky-bar,
+footer.sticky-bar,
+div.sticky-bar {
+display: none !important;
+}
+
+/* 2) Si por error se montaran dos action-bar seguidas, oculta la extra */
+.action-bar + .action-bar {
+display: none !important;
+}
+
+/* 3) Kill-switch: NO mostrar la action-bar cuando la vista sea home */
+.page-shell[data-view="home"] .action-bar {
+display: none !important;
 }

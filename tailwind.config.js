@@ -1,31 +1,22 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
 content: [
-"./app/**/*.{js,ts,jsx,tsx}",
-"./src/**/*.{js,ts,jsx,tsx}",
+"./app/**/*.{js,ts,jsx,tsx,mdx}",
+"./src/**/*.{js,ts,jsx,tsx,mdx}",
+"./components/**/*.{js,ts,jsx,tsx,mdx}",
 ],
 theme: {
 extend: {
-colors: {
-brand: "#0057FF",
-"brand-press": "#2256B5",
-},
 boxShadow: {
-card: "0 4px 12px rgba(0,0,0,0.05)",
+card: "0 4px 12px rgba(0,0,0,.06)",
 },
-borderRadius: {
-xl: "12px",
+colors: {
+brand: "#2D6CDF",
+},
+fontFamily: {
+sans: ["Inter", "system-ui", "ui-sans-serif", "sans-serif"],
 },
 },
 },
 plugins: [],
-};
-
-Postcss.conf
-
-module.exports = {
-plugins: {
-tailwindcss: {},
-autoprefixer: {},
-},
 };

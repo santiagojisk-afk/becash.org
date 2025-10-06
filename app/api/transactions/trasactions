@@ -1,0 +1,9 @@
+import { NextResponse } from "next/server";
+import { db } from "../_mock/db";
+
+export async function GET(req: Request) {
+const url = new URL(req.url);
+const limit = Number(url.searchParams.get("limit") || 20);
+const items = db.listTxs().slice(0, Math.max(1, limit));
+return NextResponse.json({ items, nextCursor: null });
+}

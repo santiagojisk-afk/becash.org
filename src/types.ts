@@ -18,13 +18,3 @@ export type Tx = {
   fee?: number; net?: number;
 };
 
-export type OfflineIntent = {
-  id: Id;
-  /** ephemeral key used in LAN handshake (future) */
-  ephKey: string;
-  /** QR payload (future) */
-  qr: string;
-  /** target peer ip/mac signature (future) */
-  peerHint?: string;
-  expiresAt: number;
-};
