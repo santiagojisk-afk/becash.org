@@ -2,35 +2,28 @@ const path = require("path");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
-  swcMinify: true,
+reactStrictMode: true,
 
-  async rewrites() {
-    // En dev, proxyea /api/* al backend público
-    return process.env.NEXT_PUBLIC_API_URL
-      ? [] // si está puesta la URL pública, no proxyees
-      : [{ source: "/api/:path*", destination: "https://api.beqash.org/api/:path*" }];
-  },
+// ✅ Autoriza cargar assets de Next desde tu LAN en DEV
+experimental: {
+allowedOrigins: [
+"http://localhost:3000",
+"http://192.168.1.21:3000", // IP:PUERTO desde donde ABRES la web en el cel
+"http://192.168.1.18:3000" // (añade aquí la IP real de tu PC si es otra)
+],
+},
 
-  webpackDevMiddleware: (config) => {
-    // Ignora archivos del sistema de Windows que provocan warnings
-    config.watchOptions.ignored = [
-      "/node_modules/",
-      "/.git/",
-      "C:/pagefile.sys",
-      "C:/hiberfil.sys",
-      "C:/swapfile.sys",
-      "C:/System Volume Information/**",
-      "C:/DumpStack.log.tmp",
-    ];
-    return config;
-  },
+async rewrites() {
+// 🔴 AJUSTA ESTA URL AL BACKEND REAL
+const apiBase =
+process.env.NEXT_PUBLIC_API_URL || "http://192.168.1.21:4000";
+return [{ source: "/api/:path*", destination: `${apiBase}/api/:path*` }];
+},
 
-  webpack: (config) => {
-    // Alias @ que apunta a src/
-    config.resolve.alias["@"] = path.resolve(__dirname, "src");
-    return config;
-  },
+webpack: (config) => {
+config.resolve.alias["@"] = path.resolve(__dirname, "src");
+return config;
+},
 };
 
 module.exports = nextConfig;

@@ -8,10 +8,10 @@ content: [
 theme: {
 extend: {
 boxShadow: {
-card: "0 4px 12px rgba(0,0,0,.06)",
+card: "0 4px 12px rgba(0, 0, 0, 0.06)",
 },
 colors: {
-brand: "#2D6CDF",
+brand: "#0d1b2a", //  Azul medianoche
 },
 fontFamily: {
 sans: ["Inter", "system-ui", "ui-sans-serif", "sans-serif"],

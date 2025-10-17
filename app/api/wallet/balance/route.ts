@@ -1,5 +1,5 @@
 // app/api/wallet/balance/route.ts
-import { API_BASE, authHeaders, pass } from "../../_utils";
+import { API_BASE, readBody, jsonOrText, authHeaders, pass } from "../../_utils";
 
 export async function GET(req: Request) {
 const resp = await fetch(`${API_BASE}/api/wallet/balance`, {

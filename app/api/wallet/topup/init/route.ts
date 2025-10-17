@@ -1,6 +1,6 @@
 // app/api/wallet/topup/init/route.ts
 import { NextResponse } from "next/server";
-import { API_BASE, authHeaders, pass } from "../../../_utils";
+import { API_BASE, readBody, jsonOrText, authHeaders,pass} from "../../../_utils";
 
 type CashMethod = "spei" | "oxxo" | "seven";
 
@@ -23,7 +23,7 @@ const referencia = `${pad(rnd(99999999), 8)}-${pad(rnd(9999), 4)}`;
 return { ok: true, method: "seven", amount, expiresAt, seven: { referencia } };
 }
 
-export async function POST(req: Request) {
+export async function POST(req) {
 const body = await req.json().catch(() => ({}));
 const { amount, method } = body as { amount?: number; method?: CashMethod };
 

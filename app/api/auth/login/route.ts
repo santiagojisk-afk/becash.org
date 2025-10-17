@@ -1,8 +1,8 @@
 // app/api/auth/login/route.ts
-import { API_BASE, readBody, pass } from "../../_utils";
+import { API_BASE, readBody, jsonOrText, authHeaders, pass } from "../../../_utils";
 
 export async function POST(req: Request) {
-const b = await readBody(req); // { username, password }
+const b = await readBody(req).catch(() => ({})); // lee username y password
 
 const resp = await fetch(`${API_BASE}/api/auth/login`, {
 method: "POST",
@@ -13,5 +13,7 @@ password: b.password,
 }),
 });
 
-return pass(resp);
+// ✅ aquí corregimos el error
+const data = await resp.json().catch(() => ({}));
+return pass(resp, data); // dos argumentos
 }

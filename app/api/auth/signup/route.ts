@@ -1,6 +1,5 @@
 // app/api/auth/signup/route.ts
-import { API_BASE, readBody } from "@/api/_utils";
-
+import { API_BASE, readBody, jsonOrText, authHeaders,pass } from "../../_utils"
 async function parseAny(resp: Response) {
 const text = await resp.text();
 try {
@@ -10,7 +9,7 @@ return { ok: false, message: text || resp.statusText };
 }
 }
 
-export async function POST(req: Request) {
+export async function POST(req) {
 const body = await readBody(req); // { username, fullName, password }
 
 const resp = await fetch(`${API_BASE}/api/auth/signup`, {

@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import { createPortal} from "react-dom";
 
 // Componentes existentes (sin tocar su API)
 import WalletCard from "@/components/WalletCard";
@@ -21,7 +22,7 @@ return (
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
 
 :root{
---brand:#0A6CFF; /* Azul primario */
+--brand:#0d1b2a; /* Azul primario */
 --brand-acc:#00D4C5; /* Turquesa de acento */
 --bg:#F7FAFF; /* Fondo claro */
 --ink:#0B1220; /* Texto principal */
@@ -43,7 +44,7 @@ font-family: "Poppins", ui-sans-serif, system-ui, -apple-system, Segoe UI, Robot
 .shadow-soft{ box-shadow:0 6px 18px rgba(14,30,68,.06); }
 
 .btn-primary{
-background:linear-gradient(180deg, #0A6CFF, #095BE0);
+background:linear-gradient(180deg, #0d1b2a, #0d2e64ff);
 color:#fff; padding:12px 14px; border-radius:12px; font-weight:700;
 box-shadow:0 8px 26px rgba(10,108,255,.22);
 }
@@ -66,7 +67,7 @@ transition:box-shadow .15s ease, border-color .15s ease;
 
 /* Tarjeta de saldo estilo "hero" (azul) */
 .balance-card{
-background: radial-gradient(160% 140% at -10% -30%, #3B82F6, #0A6CFF);
+background: radial-gradient(160% 140% at -10% -30%, #0d2e64ff, #0d1b2a);
 color:#fff; border-radius:18px; padding:18px;
 }
 .balance-caption{ opacity:.9; font-size:.9rem; }
@@ -98,6 +99,50 @@ border-top:1px solid #E5E7EB; padding:10px 16px 14px 16px;
 `}</style>
 );
 }
+function StickyActionBar({
+visible,
+onClick,
+disabled,
+label,
+}: {
+visible: boolean;
+onClick: () => void;
+disabled: boolean;
+label: string;
+}) {
+const [mounted, setMounted] = useState(false);
+useEffect(() => setMounted(true), []);
+if (!visible || !mounted) return null;
+
+const node = (
+<div
+style={{
+position: "fixed",
+left: 0,
+right: 0,
+bottom: 0,
+height: "72px",
+zIndex: 2147483647,
+display: "flex",
+alignItems: "center",
+justifyContent: "center",
+background: "#ffffffef",
+backdropFilter: "blur(8px)",
+borderTop: "1px solid #E5E7EB",
+boxShadow: "0 -6px 18px rgba(0,0,0,.06)",
+padding: "10px 16px",
+pointerEvents: "auto",
+}}
+>
+<button className="btn-primary w-full" onClick={onClick} disabled={disabled}>
+{label}
+</button>
+</div>
+);
+
+return createPortal(node, document.body);
+}
+
 
 /* =========================
 TIPOS
@@ -487,12 +532,17 @@ return (
 <button className={`tab ${view === "send" ? "tab--active" : ""}`} onClick={() => setView("send")}>Enviar</button>
 <button className={`tab ${view === "topup" ? "tab--active" : ""}`} onClick={() => setView("topup")}>Recargar</button>
 <button className={`tab ${view === "withdraw" ? "tab--active" : ""}`} onClick={() => setView("withdraw")}>Retirar</button>
-</div>
+
 </nav>
 
-<main className="p-5 space-y-6">
+<main
+className={`p-5 space-y-6 ${
+view === "send" || view === "topup" || view === "withdraw" ? "pb-[88px]" : ""
+}`}
+>
+    </main>
 {/* HOME */}
-{view === "home" && (
+
 <>
 <section className="balance-card shadow">
 <p className="balance-caption">Saldo</p>
@@ -555,13 +605,20 @@ cta={{ label: "Enviar ahora", onClick: () => setView("send") }}
 <li key={tx.id} className="py-3 flex items-center justify-between">
 <div>
 <p className="text-sm text-gray-500">{new Date(tx.createdAt).toLocaleString()}</p>
-<p className="text-sm">{tx.note || (tx.type === "in" ? "Pago recibido" : "Pago enviado")}</p>
+<p className="text-sm">{formatNote(tx.note || "", tx.type)}</p>
 <p className="text-xs text-gray-500">
 {tx.from ? `De: @${tx.from}` : null} {tx.to ? `· Para: @${tx.to}` : null}
 </p>
 </div>
-<div className={`font-semibold ${tx.type === "in" ? "text-green-600" : "text-gray-900"}`}>
-{tx.type === "in" ? "+" : "-"}${Math.abs(tx.amount).toFixed(2)}
+<div
+className={`font-semibold ${
+tx.type === "in" || tx.note?.toLowerCase().includes("topup")
+? "text-green-600"
+: "text-red-600"
+}`}
+>
+{(tx.type === "in" || tx.note?.toLowerCase().includes("topup")) ? "+" : "-"}
+${Math.abs(tx.amount).toFixed(2)}
 </div>
 </li>
 ))}
@@ -636,22 +693,16 @@ cta={{ label: "Enviar ahora", onClick: () => setView("send") }}
 </main>
 
 {/* Barra inferior unificada: “Continuar” */}
-{(view === "send" || view === "topup" || view === "withdraw") && (
-<div className="sticky-bar">
-<button
-className="btn-primary w-full"
+<StickyActionBar
+visible={view === "send" || view === "topup" || view === "withdraw"}
 onClick={() => {
 if (view === "send") return startSendFlow();
 if (view === "topup") return startTopupFlow();
 if (view === "withdraw") return startWithdrawFlow();
 }}
 disabled={loading}
->
-{loading ? "Procesando..." : "Continuar"}
-</button>
-</div>
-)}
-
+label={loading ? "Procesando..." : "Continuar"}
+/>
 {/* Modales */}
 <ForgotPasswordModal open={fpOpen} onClose={() => setFpOpen(false)} />
 <ChangePasswordModal open={cpOpen} onClose={() => setCpOpen(false)} />
@@ -711,6 +762,17 @@ Enviar a {to || "..."}
 </div>
 </div>
 );
+}
+function formatNote(rawNote: string, type?: string) {
+if (!rawNote) return type === "in" ? "Pago recibido" : "Pago enviado";
+
+const note = rawNote.toLowerCase().trim();
+
+if (note.includes("topup")) return "Recarga";
+if (note.includes("withdraw")) return "Retiro";
+if (note.includes("transfer")) return "Transferencia";
+
+return note.charAt(0).toUpperCase() + note.slice(1);
 }
 
 /* ===== Confirm override para reutilizar SecureConfirm ===== */

@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import { createPortal } from "react-dom"; // ← IMPORT CORRECTO
 
 // Componentes existentes (sin tocar su API)
 import WalletCard from "@/components/WalletCard";
@@ -21,7 +22,7 @@ return (
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
 
 :root{
---brand:#0A6CFF; /* Azul primario */
+--brand:#0d1b2a; /* Azul primario */
 --brand-acc:#00D4C5; /* Turquesa de acento */
 --bg:#F7FAFF; /* Fondo claro */
 --ink:#0B1220; /* Texto principal */
@@ -43,7 +44,7 @@ font-family: "Poppins", ui-sans-serif, system-ui, -apple-system, Segoe UI, Robot
 .shadow-soft{ box-shadow:0 6px 18px rgba(14,30,68,.06); }
 
 .btn-primary{
-background:linear-gradient(180deg, #0A6CFF, #095BE0);
+background:linear-gradient(180deg, #0d1b2a, #0d2e64ff);
 color:#fff; padding:12px 14px; border-radius:12px; font-weight:700;
 box-shadow:0 8px 26px rgba(10,108,255,.22);
 }
@@ -64,39 +65,102 @@ transition:box-shadow .15s ease, border-color .15s ease;
 .tab{ padding:8px 12px; border-radius:10px; font-size:.85rem; color:#334155; border:1px solid transparent; }
 .tab--active{ background:linear-gradient(180deg, rgba(10,108,255,.18), rgba(10,108,255,.06)); color:#0b1220; border-color:rgba(10,108,255,.35); }
 
-/* Tarjeta de saldo estilo "hero" (azul) */
+/* Tarjeta de saldo */
 .balance-card{
-background: radial-gradient(160% 140% at -10% -30%, #3B82F6, #0A6CFF);
+background: radial-gradient(160% 140% at -10% -30%, #0d2e64ff, #0d1b2a);
 color:#fff; border-radius:18px; padding:18px;
 }
 .balance-caption{ opacity:.9; font-size:.9rem; }
 .balance-amount{ font-weight:700; font-size:2rem; letter-spacing:.4px; }
 
-/* Tiles de acciones */
-.tiles{ display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; }
+/* Tiles de acciones (Home) -> círculos con icono */
+.tiles{ display:grid; grid-template-columns: repeat(3, 1fr); gap:16px; justify-items:center; }
 .tile{
-display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
-padding:14px 10px; border-radius:16px;
-background:#ffffff; border:1px solid #E5E7EB; color:#0b1220;
+display:grid; place-items:center;
+width:84px; height:84px; border-radius:50%;
+background:linear-gradient(180deg, #f5f6f8, #e5e7eb);
+border:1px solid #d1d5db; color:#0b1220;
+box-shadow:0 4px 10px rgba(0,0,0,.05);
+transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
 }
-.tile .label{ font-size:.82rem; color:#334155; }
+.tile:hover{ transform:scale(1.05); box-shadow:0 6px 14px rgba(13,27,42,.1); border-color:#cbd5e1; }
+.tile .label{ display:none; }
+
+/* Iconos dentro del círculo (sin fondo blanco) */
+.tile-icon{
+width:40px; height:40px; display:block; object-fit:contain; background:transparent;
+mix-blend-mode:multiply; opacity:.9; filter:blur(0.2px);
+transition:opacity .15s ease, transform .15s ease;
+}
+.tile:hover .tile-icon{ opacity:1; transform:scale(1.03); }
 
 /* Listas */
 .card{ background:#fff; border:1px solid #E5E7EB; border-radius:18px; padding:18px; }
 .card-title{ font-weight:600; color:#0b1220; }
 .card-muted{ color:#6b7280; }
 
-/* Barra inferior (renombrada para evitar choques con otras clases) */
-.action-bar{
-position:sticky; bottom:0; left:0; right:0;
-background:#ffffffee; backdrop-filter: blur(8px);
-border-top:1px solid #E5E7EB; padding:10px 16px 14px 16px;
+/* Clase por si la usas, no estorba */
+.sticky-bar{
+position:fixed; left:0; right:0; bottom:0; height:72px;
+display:flex; align-items:center; justify-content:center;
+background:#ffffffef; backdrop-filter:blur(8px);
+border-top:1px solid #E5E7EB; box-shadow:0 -6px 18px rgba(0,0,0,.06);
+padding:10px 16px; z-index:2147483647;
 }
 
 .chip{ background:#fff; border:1px solid #E5E7EB; padding:8px 12px; border-radius:12px; font-size:.85rem; color:#0b1220; }
 .chip-danger{ background:#fff1f2; border:1px solid rgba(239,68,68,.35); padding:8px 12px; border-radius:12px; font-size:.85rem; color:#991b1b; }
 `}</style>
 );
+}
+
+/* =========================
+BARRA FIJA (portal)
+========================= */
+function StickyActionBar({
+visible,
+onClick,
+disabled,
+label,
+}: {
+visible: boolean;
+onClick: () => void;
+disabled: boolean;
+label: string;
+}) {
+const [mounted, setMounted] = useState(false);
+useEffect(() => setMounted(true), []);
+if (!visible || !mounted) return null;
+
+const node = (
+<div
+style={{
+position: "fixed",
+left: 0,
+right: 0,
+bottom: 0,
+height: "72px",
+zIndex: 2147483647,
+display: "flex",
+alignItems: "center",
+justifyContent: "center",
+background: "#ffffffef",
+backdropFilter: "blur(8px)",
+borderTop: "1px solid #E5E7EB",
+boxShadow: "0 -6px 18px rgba(0,0,0,.06)",
+padding: "10px 16px",
+paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 10px)",
+pointerEvents: "auto",
+width: "100%",
+}}
+>
+<button className="btn-primary w-full" onClick={onClick} disabled={disabled}>
+{label}
+</button>
+</div>
+);
+
+return createPortal(node, document.body);
 }
 
 /* =========================
@@ -126,41 +190,30 @@ type?: "in" | "out";
 };
 type TxListResp = { items: Tx[]; nextCursor?: string };
 
-/* ---- Nuevos tipos para Topup/Withdraw con métodos ---- */
-type CashMethod = "spei" | "oxxo" | "seven";
-
-type InitTopupResp = {
-ok: boolean;
-method: CashMethod;
-amount: number;
-expiresAt?: string;
-spei?: { clabe: string; beneficiario: string; concepto: string };
-oxxo?: { referencia: string };
-seven?: { referencia: string };
-message?: string;
-};
-
-type InitWithdrawResp = {
-ok: boolean;
-method: CashMethod;
-amount: number;
-// SPEI (salida a banco)
-spei?: { rastreo?: string; beneficiario?: string; banco?: string; concepto?: string };
-// Corresponsales
-oxxo?: { retiro: string; pin?: string; expiresAt?: string };
-seven?: { retiro: string; pin?: string; expiresAt?: string };
-message?: string;
-};
+/* Near Pay */
+type NearItem = { handle: string; distanceM: number; lat: number; lng: number; seenAt: string };
 
 /* ====== Iconos mínimos ====== */
 function IconSend() {
-return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h12M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>);
+return (
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+<path d="M5 12h12M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+</svg>
+);
 }
 function IconTopup() {
-return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 19V7M6 13l6-6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>);
+return (
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+<path d="M12 19V7M6 13l6-6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+</svg>
+);
 }
 function IconWithdraw() {
-return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 5v12M6 11l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>);
+return (
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+<path d="M12 5v12M6 11l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+</svg>
+);
 }
 
 export default function Page() {
@@ -197,18 +250,6 @@ const [recipientOpen, setRecipientOpen] = useState(false);
 // ===== Recargar / Retirar =====
 const [topupAmount, setTopupAmount] = useState<string>("");
 const [withdrawAmount, setWithdrawAmount] = useState<string>("");
-
-// ---- Métodos seleccionados + datos adicionales ----
-const [topupMethod, setTopupMethod] = useState<CashMethod>("spei");
-const [withdrawMethod, setWithdrawMethod] = useState<CashMethod>("spei");
-const [withdrawDestClabe, setWithdrawDestClabe] = useState<string>("");
-
-// ---- Modal de instrucciones (CLABE/Referencias/Códigos) ----
-type InstructionData =
-| ({ kind: "topup" } & InitTopupResp)
-| ({ kind: "withdraw" } & InitWithdrawResp);
-const [instrOpen, setInstrOpen] = useState(false);
-const [instrData, setInstrData] = useState<InstructionData | null>(null);
 
 // ===== Persistencia =====
 useEffect(() => {
@@ -344,12 +385,9 @@ setToken(null); setMe(null); setBalance(null); setTxs([]); setCursor(undefined);
 }
 
 // ================= Flujos de acción =================
-// ENVIAR → verificación y luego elegir destinatario
 function startSendFlow() {
 const amt = Number(sendAmount);
 if (!amt || amt <= 0) { alert("Ingresa un monto válido"); return; }
-// Sin override => onConfirm dispara afterPinOk()
-_clearOverride();
 setConfirmOpen(true);
 }
 function afterPinOk() { setConfirmOpen(false); setRecipientOpen(true); }
@@ -376,61 +414,47 @@ await Promise.all([fetchBalance(), initTxs()]); setView("home");
 } finally { setLoading(false); }
 }
 
-// RECARGAR → verificación y luego INIT (SPEI/OXXO/7)
 function startTopupFlow() {
 const amt = Number(topupAmount);
 if (!amt || amt <= 0) return alert("Ingresa un monto válido");
-_overrideConfirm(async () => {
+setConfirmOpen(true);
+const onOk = async () => {
 try {
 setLoading(true);
-const { ok, data } = await apiFetch<InitTopupResp>("/api/wallet/topup/init", {
-method: "POST",
-headers: { ...authHeaders(), "Content-Type": "application/json" },
-body: JSON.stringify({ amount: amt, method: topupMethod }),
-});
-if (!ok || !data?.ok) { alert((data as any)?.message || "No se pudo iniciar recarga"); return; }
-setInstrData({ kind: "topup", ...data });
-setInstrOpen(true);
+const { ok, data } = await apiFetch<{ ok: boolean; message?: string }>(
+"/api/wallet/topup",
+{ method: "POST", body: JSON.stringify({ amount: amt }) }
+);
+if (!ok) { alert((data as any)?.message || "No se pudo iniciar recarga"); return; }
 setTopupAmount("");
 await Promise.all([fetchBalance(), initTxs()]);
 setView("home");
 } finally { setLoading(false); }
-});
-setConfirmOpen(true);
+};
+_overrideConfirm(onOk);
 }
 
-// RETIRAR → verificación y luego INIT (SPEI/OXXO/7)
 function startWithdrawFlow() {
 const amt = Number(withdrawAmount);
 if (!amt || amt <= 0) return alert("Ingresa un monto válido");
-if (withdrawMethod === "spei" && (!withdrawDestClabe || withdrawDestClabe.length !== 18)) {
-return alert("Ingresa CLABE destino válida (18 dígitos)");
-}
-_overrideConfirm(async () => {
+setConfirmOpen(true);
+const onOk = async () => {
 try {
 setLoading(true);
-const { ok, data } = await apiFetch<InitWithdrawResp>("/api/wallet/withdraw/init", {
-method: "POST",
-headers: { ...authHeaders(), "Content-Type": "application/json" },
-body: JSON.stringify({
-amount: amt,
-method: withdrawMethod,
-destClabe: withdrawMethod === "spei" ? withdrawDestClabe : undefined,
-}),
-});
-if (!ok || !data?.ok) { alert((data as any)?.message || "No se pudo retirar"); return; }
-setInstrData({ kind: "withdraw", ...data });
-setInstrOpen(true);
+const { ok, data } = await apiFetch<{ ok: boolean; message?: string }>(
+"/api/wallet/withdraw",
+{ method: "POST", body: JSON.stringify({ amount: amt }) }
+);
+if (!ok) { alert((data as any)?.message || "No se pudo retirar"); return; }
 setWithdrawAmount("");
-setWithdrawDestClabe("");
 await Promise.all([fetchBalance(), initTxs()]);
 setView("home");
 } finally { setLoading(false); }
-});
-setConfirmOpen(true);
+};
+_overrideConfirm(onOk);
 }
 
-/* ======= Datos para "Contactos frecuentes" ======= */
+/* ======= Contactos frecuentes ======= */
 const myHandle = me?.handle || me?.username || "";
 const frequentContacts = useMemo(() => {
 const counts: Record<string, number> = {};
@@ -442,11 +466,91 @@ counts[other] = (counts[other] || 0) + 1;
 return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([h])=>h);
 }, [txs, myHandle]);
 
+/* =========================
+NEAR PAY (Cerca)
+========================= */
+const [nearOn, setNearOn] = useState(false);
+const [nearItems, setNearItems] = useState<NearItem[]>([]);
+const [nearLoading, setNearLoading] = useState(false);
+const [geo, setGeo] = useState<{lat:number; lng:number} | null>(null);
+const [nearError, setNearError] = useState<string | null>(null);
+const NEAR_RADIUS = 50; // metros
+
+async function publishHeartbeat(pos?: {lat:number; lng:number}) {
+try {
+const coords = pos ?? geo;
+if (!coords) return;
+await apiFetch("/api/near/heartbeat", {
+method: "POST",
+headers: { ...authHeaders(), "Content-Type": "application/json" },
+body: JSON.stringify(coords),
+});
+} catch {}
+}
+async function refreshNearby() {
+if (!geo) return;
+setNearLoading(true);
+try {
+const qs = new URLSearchParams({ lat: String(geo.lat), lng: String(geo.lng), radius: String(NEAR_RADIUS) });
+const { ok, data } = await apiFetch<{ ok:boolean; items: NearItem[]; radius:number }>(`/api/near/around?${qs}`, { headers: authHeaders() });
+if (ok && (data as any)?.ok) setNearItems((data as any).items || []);
+} finally { setNearLoading(false); }
+}
+function startNear() {
+setNearError(null);
+if (!navigator.geolocation) { setNearError("Tu dispositivo no soporta geolocalización"); return; }
+navigator.geolocation.getCurrentPosition(
+async (p) => {
+const coords = { lat: p.coords.latitude, lng: p.coords.longitude };
+setGeo(coords);
+await publishHeartbeat(coords);
+await refreshNearby();
+},
+(err) => setNearError(err?.message || "No se pudo obtener ubicación"),
+{ enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+);
+setNearOn(true);
+}
+function stopNear() {
+setNearOn(false);
+setNearItems([]);
+setGeo(null);
+// opcional: borrar presencia en backend
+apiFetch("/api/near/me", { method: "DELETE", headers: authHeaders() }).catch(()=>{});
+}
+// pulso cada 20s mientras esté activo
+useEffect(() => {
+if (!nearOn) return;
+const beat = setInterval(() => publishHeartbeat().catch(()=>{}), 20000);
+const poll = setInterval(() => refreshNearby().catch(()=>{}), 10000);
+return () => { clearInterval(beat); clearInterval(poll); };
+}, [nearOn, geo?.lat, geo?.lng]);
+
+function useNearPay(handle: string) {
+// Rellena flujo de envío con el usuario elegido de cerca
+setRecipientOpen(false);
+setConfirmOpen(true);
+_overrideConfirm(async () => {
+try {
+setLoading(true);
+const { ok, data } = await apiFetch("/api/transactions/transfer", {
+method: "POST",
+headers: { ...authHeaders(), "Content-Type": "application/json" },
+body: JSON.stringify({ to: handle, amount: Number(sendAmount), note: sendNote || "NearPay" }),
+});
+if (!(ok as any)) { alert((data as any)?.message || "No se pudo enviar"); return; }
+setSendAmount(""); setSendNote("");
+await Promise.all([fetchBalance(), initTxs()]);
+setView("home");
+} finally { setLoading(false); setConfirmOpen(false); _clearOverride(); }
+});
+}
+
 /* ============================ Render ============================ */
 
 if (!isAuthed) {
 return (
-<div className="page-shell min-h-[100dvh]" data-view={view}>
+<div className="page-shell min-h-[100dvh]">
 <GlobalStyles />
 <div className="max-w-md mx-auto p-6">
 {/* Branding */}
@@ -517,7 +621,7 @@ return (
 
 // -------- App autenticada --------
 return (
-<div className="page-shell min-h-[100dvh]" data-view={view}>
+<div className="page-shell min-h-[100dvh]">
 <GlobalStyles />
 
 <header className="px-5 pt-5 flex items-center justify-between">
@@ -543,7 +647,8 @@ return (
 </div>
 </nav>
 
-<main className="p-5 space-y-6">
+{/* padding-bottom para que la barra fija no tape el contenido */}
+<main className="p-5 space-y-6 pb-24">
 {/* HOME */}
 {view === "home" && (
 <>
@@ -552,15 +657,16 @@ return (
 <p className="balance-amount">${(balance ?? 0).toFixed(2)}</p>
 </section>
 
+{/* Círculos con imágenes (sin texto) */}
 <section className="tiles">
 <button className="tile" onClick={() => setView("send")} aria-label="Enviar">
-<IconSend /><span className="label">Enviar</span>
+<Image className="tile-icon" src="/icons/send.png" alt="Enviar" width={40} height={40} />
 </button>
 <button className="tile" onClick={() => setView("topup")} aria-label="Recargar">
-<IconTopup /><span className="label">Recargar</span>
+<Image className="tile-icon" src="/icons/topup.png" alt="Recargar" width={40} height={40} />
 </button>
 <button className="tile" onClick={() => setView("withdraw")} aria-label="Retirar">
-<IconWithdraw /><span className="label">Retirar</span>
+<Image className="tile-icon" src="/icons/withdraw.png" alt="Retirar" width={40} height={40} />
 </button>
 </section>
 
@@ -608,13 +714,20 @@ cta={{ label: "Enviar ahora", onClick: () => setView("send") }}
 <li key={tx.id} className="py-3 flex items-center justify-between">
 <div>
 <p className="text-sm text-gray-500">{new Date(tx.createdAt).toLocaleString()}</p>
-<p className="text-sm">{tx.note || (tx.type === "in" ? "Pago recibido" : "Pago enviado")}</p>
+<p className="text-sm">{formatNote(tx.note || "", tx.type)}</p>
 <p className="text-xs text-gray-500">
 {tx.from ? `De: @${tx.from}` : null} {tx.to ? `· Para: @${tx.to}` : null}
 </p>
 </div>
-<div className={`font-semibold ${tx.type === "in" ? "text-green-600" : "text-gray-900"}`}>
-{tx.type === "in" ? "+" : "-"}${Math.abs(tx.amount).toFixed(2)}
+<div
+className={`font-semibold ${
+tx.type === "in" || tx.note?.toLowerCase().includes("topup")
+? "text-green-600"
+: "text-red-600"
+}`}
+>
+{(tx.type === "in" || tx.note?.toLowerCase().includes("topup")) ? "+" : "-"}$
+{Math.abs(tx.amount).toFixed(2)}
 </div>
 </li>
 ))}
@@ -635,6 +748,8 @@ cta={{ label: "Enviar ahora", onClick: () => setView("send") }}
 
 {/* ENVIAR */}
 {view === "send" && (
+<section className="space-y-6">
+{/* === Formulario Enviar === */}
 <section className="card shadow space-y-4">
 <h2 className="card-title">Enviar dinero</h2>
 <form onSubmit={(e)=>e.preventDefault()} className="space-y-4">
@@ -649,26 +764,71 @@ cta={{ label: "Enviar ahora", onClick: () => setView("send") }}
 </form>
 <p className="text-xs card-muted">Toca Continuar para confirmar y elegir destinatario.</p>
 </section>
+
+{/* === Pagar por cercanía (beta) ==== */}
+<div className="card shadow space-y-3">
+<div className="flex items-center justify-between">
+<h3 className="card-title">Pagar por cercanía (beta)</h3>
+{!nearOn ? (
+<button className="btn-outline" onClick={startNear}>Activar</button>
+) : (
+<button className="btn-outline" onClick={stopNear}>Detener</button>
+)}
+</div>
+
+{nearError && <p className="text-sm text-red-600">{nearError}</p>}
+{!nearOn && <p className="text-sm card-muted">Activa para ver usuarios Qash a ≤ {NEAR_RADIUS} m.</p>}
+
+{nearOn && (
+<div className="space-y-2">
+<div className="flex items-center justify-between">
+<p className="text-sm card-muted">Usuarios cerca</p>
+<button className="btn-outline" onClick={refreshNearby} disabled={nearLoading}>
+{nearLoading ? "Buscando..." : "Actualizar"}
+</button>
+</div>
+
+{!nearItems.length ? (
+<p className="text-sm card-muted">No hay Qashers cerca aún.</p>
+) : (
+<ul className="divide-y divide-gray-100">
+{nearItems.map((it) => (
+<li key={it.handle} className="py-2 flex items-center justify-between">
+<div>
+<p className="font-medium">@{it.handle}</p>
+<p className="text-xs card-muted">{it.distanceM} m · visto {new Date(it.seenAt).toLocaleTimeString()}</p>
+</div>
+<button
+className="btn-primary"
+onClick={() => {
+if (!(Number(sendAmount) > 0)) { alert("Ingresa primero el monto"); return; }
+useNearPay(it.handle);
+}}
+>
+Pagar
+</button>
+</li>
+))}
+</ul>
+)}
+<p className="text-[11px] text-gray-500">Tu ubicación se borra automáticamente tras inactividad (2 min).</p>
+</div>
+)}
+</div>
+</section>
 )}
 
 {/* RECARGAR */}
 {view === "topup" && (
 <section className="card shadow space-y-4">
 <h2 className="card-title">Recargar saldo</h2>
-
-{/* Selector de método */}
-<div className="space-y-3">
-<label className="text-sm card-muted">Método</label>
-<MethodTabs value={topupMethod} onChange={setTopupMethod} />
-</div>
-
 <form onSubmit={(e)=>e.preventDefault()} className="space-y-4">
 <div>
 <label className="text-sm card-muted">Monto</label>
 <input className="input" inputMode="decimal" placeholder="0.00" value={topupAmount} onChange={(e) => setTopupAmount(e.target.value)} />
 </div>
 </form>
-<p className="text-xs card-muted">Toca Continuar para generar la instrucción.</p>
+<p className="text-xs card-muted">Toca Continuar para confirmar la recarga.</p>
 </section>
 )}
 
@@ -676,36 +836,13 @@ cta={{ label: "Enviar ahora", onClick: () => setView("send") }}
 {view === "withdraw" && (
 <section className="card shadow space-y-4">
 <h2 className="card-title">Retirar</h2>
-
-{/* Selector de método */}
-<div className="space-y-3">
-<label className="text-sm card-muted">Método</label>
-<MethodTabs value={withdrawMethod} onChange={setWithdrawMethod} />
-</div>
-
 <form onSubmit={(e)=>e.preventDefault()} className="space-y-4">
 <div>
 <label className="text-sm card-muted">Monto</label>
 <input className="input" inputMode="decimal" placeholder="0.00" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} />
 </div>
-
-{withdrawMethod === "spei" && (
-<div>
-<label className="text-sm card-muted">CLABE destino (18 dígitos)</label>
-<input
-className="input"
-inputMode="numeric"
-placeholder="Ej. 032180000118359719"
-maxLength={18}
-value={withdrawDestClabe}
-onChange={(e)=>setWithdrawDestClabe(e.target.value.replace(/\D/g, ""))}
-/>
-</div>
-)}
 </form>
-<p className="text-xs card-muted">
-Toca Continuar para {withdrawMethod === "spei" ? "transferir por SPEI" : "generar tu código de retiro"}.
-</p>
+<p className="text-xs card-muted">Toca Continuar para confirmar el retiro.</p>
 </section>
 )}
 
@@ -716,36 +853,24 @@ Toca Continuar para {withdrawMethod === "spei" ? "transferir por SPEI" : "genera
 <ProfileSettings user={me || undefined} token={token || undefined} onUpdated={fetchMe} onChangePassword={() => setCpOpen(true)} />
 </section>
 )}
+
+{/* Espaciador para la barra fija (cuando aplica) */}
+{(view === "send" || view === "topup" || view === "withdraw") && (
+<div style={{ height: 88 }} />
+)}
 </main>
 
-{/* Barra inferior unificada: una por acción (no aparece en Home/Profile) */}
-{(view === "send" || view === "topup" || view === "withdraw") && (
-<div className="action-bar">
-<button
-className="btn-primary w-full"
+{/* Barra inferior unificada (PORTAL) */}
+<StickyActionBar
+visible={view === "send" || view === "topup" || view === "withdraw"}
 onClick={() => {
 if (view === "send") return startSendFlow();
 if (view === "topup") return startTopupFlow();
 if (view === "withdraw") return startWithdrawFlow();
 }}
-disabled={
-loading ||
-(view === "send" && !(Number(sendAmount) > 0)) ||
-(view === "topup" && !(Number(topupAmount) > 0)) ||
-(view === "withdraw" && (!(Number(withdrawAmount) > 0) ||
-(withdrawMethod === "spei" && withdrawDestClabe.length !== 18)))
-}
->
-{loading
-? "Procesando..."
-: view === "send"
-? "Enviar"
-: view === "topup"
-? "Generar instrucción"
-: (withdrawMethod === "spei" ? "Transferir SPEI" : "Generar código de retiro")}
-</button>
-</div>
-)}
+disabled={loading}
+label={loading ? "Procesando..." : "Continuar"}
+/>
 
 {/* Modales */}
 <ForgotPasswordModal open={fpOpen} onClose={() => setFpOpen(false)} />
@@ -769,9 +894,6 @@ onClose={() => setRecipientOpen(false)}
 onPick={(handle) => pickRecipientAndSend(handle)}
 />
 )}
-
-{/* Instrucciones (CLABE/Referencias/Códigos) */}
-<InstructionModal open={instrOpen} data={instrData} onClose={() => setInstrOpen(false)} />
 </div>
 );
 }
@@ -811,101 +933,13 @@ Enviar a {to || "..."}
 );
 }
 
-/* ---- Selector de método (tabs SPEI/OXXO/7) ---- */
-function MethodTabs({
-value, onChange, labelSpei = "SPEI", labelOxxo = "OXXO", labelSeven = "7-Eleven",
-}: { value: CashMethod; onChange: (v: CashMethod) => void; labelSpei?: string; labelOxxo?: string; labelSeven?: string }) {
-return (
-<div className="tabs">
-<button className={`tab ${value === "spei" ? "tab--active":""}`} onClick={()=>onChange("spei")}>{labelSpei}</button>
-<button className={`tab ${value === "oxxo" ? "tab--active":""}`} onClick={()=>onChange("oxxo")}>{labelOxxo}</button>
-<button className={`tab ${value === "seven" ? "tab--active":""}`} onClick={()=>onChange("seven")}>{labelSeven}</button>
-</div>
-);
-}
-
-/* ---- Modal de instrucciones (CLABE/Referencias/Códigos) ---- */
-function InstructionModal({
-open, data, onClose,
-}: { open: boolean; data: InstructionData | null; onClose: () => void }) {
-if (!open || !data) return null;
-
-const copy = (text: string) => navigator.clipboard?.writeText(text);
-const isTopup = data.kind === "topup";
-
-return (
-<div className="fixed inset-0 bg-black/40 grid place-items-center z-50">
-<div className="bg-white rounded-2xl p-5 w-full max-w-md shadow space-y-4">
-<div className="flex items-center justify-between">
-<h3 className="font-semibold">{isTopup ? "Instrucciones de Recarga" : "Instrucciones de Retiro"}</h3>
-<button className="text-sm btn-outline" onClick={onClose}>Cerrar</button>
-</div>
-
-<div className="space-y-3">
-<p className="text-sm card-muted">
-Monto: <b>${(data.amount || 0).toFixed(2)}</b> · Método: <b>{data.method.toUpperCase()}</b>
-{"expiresAt" in data && (data as any).expiresAt ? <> · Vence: <b>{new Date((data as any).expiresAt).toLocaleString()}</b></> : null}
-</p>
-
-{/* SPEI Topup */}
-{"spei" in data && data.spei && data.method === "spei" && isTopup && (
-<div className="card shadow-soft">
-<p className="card-title mb-2">Transfiere por SPEI a:</p>
-<p><b>CLABE:</b> {data.spei.clabe} <button className="btn-outline ml-2" onClick={()=>copy(data.spei!.clabe)}>Copiar</button></p>
-<p><b>Beneficiario:</b> {data.spei.beneficiario}</p>
-<p><b>Concepto:</b> {data.spei.concepto} <button className="btn-outline ml-2" onClick={()=>copy(data.spei!.concepto)}>Copiar</button></p>
-<p className="text-sm card-muted mt-2">Tu saldo se acreditará al recibir el SPEI.</p>
-</div>
-)}
-
-{/* OXXO / 7-Eleven (Topup o Withdraw) */}
-{data.method === "oxxo" && (data as any).oxxo && (
-<div className="card shadow-soft">
-<p className="card-title mb-2">{isTopup ? "Recarga en OXXO" : "Retiro en OXXO"}</p>
-{"referencia" in (data as any).oxxo ? (
-<p><b>Referencia:</b> {(data as any).oxxo.referencia} <button className="btn-outline ml-2" onClick={()=>copy((data as any).oxxo.referencia)}>Copiar</button></p>
-) : (
-<>
-<p><b>Retiro:</b> {(data as any).oxxo.retiro} <button className="btn-outline ml-2" onClick={()=>copy((data as any).oxxo.retiro)}>Copiar</button></p>
-{(data as any).oxxo.pin && <p><b>PIN:</b> {(data as any).oxxo.pin} <button className="btn-outline ml-2" onClick={()=>copy((data as any).oxxo.pin)}>Copiar</button></p>}
-</>
-)}
-<p className="text-sm card-muted mt-2">{isTopup ? "Muéstrala al cajero para depositar." : "Muéstrala al cajero para retirar."}</p>
-</div>
-)}
-
-{data.method === "seven" && (data as any).seven && (
-<div className="card shadow-soft">
-<p className="card-title mb-2">{isTopup ? "Recarga en 7-Eleven" : "Retiro en 7-Eleven"}</p>
-{"referencia" in (data as any).seven ? (
-<p><b>Referencia:</b> {(data as any).seven.referencia} <button className="btn-outline ml-2" onClick={()=>copy((data as any).seven.referencia)}>Copiar</button></p>
-) : (
-<>
-<p><b>Retiro:</b> {(data as any).seven.retiro} <button className="btn-outline ml-2" onClick={()=>copy((data as any).seven.retiro)}>Copiar</button></p>
-{(data as any).seven.pin && <p><b>PIN:</b> {(data as any).seven.pin} <button className="btn-outline ml-2" onClick={()=>copy((data as any).seven.pin)}>Copiar</button></p>}
-</>
-)}
-<p className="text-sm card-muted mt-2">{isTopup ? "Muéstrala al cajero para depositar." : "Muéstrala al cajero para retirar."}</p>
-</div>
-)}
-
-{/* SPEI Withdraw (rastreo) */}
-{!isTopup && data.method === "spei" && (data as any).spei && (
-<div className="card shadow-soft">
-<p className="card-title mb-2">Transferencia SPEI enviada</p>
-{(data as any).spei.rastreo && <p><b>Rastreo:</b> {(data as any).spei.rastreo}</p>}
-{(data as any).spei.beneficiario && <p><b>Beneficiario:</b> {(data as any).spei.beneficiario}</p>}
-{(data as any).spei.banco && <p><b>Banco:</b> {(data as any).spei.banco}</p>}
-{(data as any).spei.concepto && <p><b>Concepto:</b> {(data as any).spei.concepto}</p>}
-<p className="text-sm card-muted mt-2">Guarda estos datos para seguimiento.</p>
-</div>
-)}
-</div>
-
-<button className="btn-primary w-full" onClick={onClose}>Entendido</button>
-</div>
-</div>
-);
+function formatNote(rawNote: string, type?: string) {
+if (!rawNote) return type === "in" ? "Pago recibido" : "Pago enviado";
+const note = rawNote.toLowerCase().trim();
+if (note.includes("topup")) return "Recarga";
+if (note.includes("withdraw")) return "Retiro";
+if (note.includes("transfer")) return "Transferencia";
+return note.charAt(0).toUpperCase() + note.slice(1);
 }
 
 /* ===== Confirm override para reutilizar SecureConfirm ===== */
