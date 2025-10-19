@@ -1,5 +1,5 @@
 // app/api/auth/login/route.ts
-import { API_BASE, readBody, jsonOrText, authHeaders, pass } from "../../../_utils";
+import { API_BASE, readBody, jsonOrText, authHeaders, pass } from "../../_utils";
 
 export async function POST(req: Request) {
 const b = await readBody(req).catch(() => ({})); // lee username y password

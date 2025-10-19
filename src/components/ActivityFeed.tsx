@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getTransactions } from "@/lib/http";
+import { httpsFetch as apiFetch } from "@/lib/https";
 
 type Tx = {
 id: string;
@@ -17,29 +17,38 @@ type: "sent" | "received" | "topup" | "cashout";
 };
 
 export default function ActivityFeed({ username }: { username: string }) {
+const [transactions, setTransactions] = useState<Tx[]>([]);
 const [loading, setLoading] = useState(false);
 const [txs, setTxs] = useState<Tx[]>([]);
 const [error, setError] = useState<string | null>(null);
 
 useEffect(() => {
 let stop = false;
-async function run() {
-if (!username) return;
-setLoading(true);
-setError(null);
 
-const r = await getTransactions(username);
-if (!r.ok || r.data?.ok === false) {
-if (!stop) setError(r.data?.message || "No se pudo cargar actividad");
+async function run() {
+setError(null);
+setLoading(true);
+try {
+const qs = username ? `?user=${encodeURIComponent(username)}` : "";
+const { ok, data } = await apiFetch<{ ok?: boolean; message?: string; items: Tx[] }>(
+`/api/transactions${qs}`
+);
+
+if (!ok || data?.ok === false) {
+if (!stop) setError(data?.message || "No se pudo cargar actividad");
 } else if (!stop) {
-setTxs(r.data.transactions || []);
+setTransactions(data?.items ?? []);
 }
+} catch (e: any) {
+if (!stop) setError(e?.message || "Error de red");
+} finally {
 if (!stop) setLoading(false);
 }
+}
+
 run();
 return () => { stop = true; };
 }, [username]);
-
 if (!username) return null;
 
 return (

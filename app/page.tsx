@@ -3,11 +3,25 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { createPortal } from "react-dom"; // ← IMPORT CORRECTO
+import { createPortal } from "react-dom";
 
 // Componentes existentes (sin tocar su API)
 import WalletCard from "@/components/WalletCard";
-import ProfileSettings from "@/components/ProfileSettings";
+import dynamic from "next/dynamic";
+import type { ComponentType } from "react";
+
+type ProfileSettingsProps = {
+user?: User;
+token?: string;
+onUpdated?: () => void | Promise<void>;
+onChangePassword?: () => void;
+};
+
+// Cargamos el componente de forma dinámica y nos aseguramos de tomar el export default
+const ProfileSettings = dynamic<ProfileSettingsProps>(
+() => import("@/components/ProfileSettings").then((m) => (m as any).default ?? (m as any)),
+{ ssr: false } // puedes poner true si quieres SSR; esto es solo para quitarte cualquier conflicto inmediato
+) as ComponentType<ProfileSettingsProps>;
 import SecureConfirm from "@/components/SecureConfirm";
 import SearchUser from "@/components/SearchUser";
 import { ForgotPasswordModal, ChangePasswordModal } from "@/components/AuthExtras";
@@ -22,11 +36,11 @@ return (
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
 
 :root{
---brand:#0d1b2a; /* Azul primario */
---brand-acc:#00D4C5; /* Turquesa de acento */
---bg:#F7FAFF; /* Fondo claro */
---ink:#0B1220; /* Texto principal */
---muted:#6B7280; /* Texto secundario */
+--brand:#0d1b2a;
+--brand-acc:#00D4C5;
+--bg:#F7FAFF;
+--ink:#0B1220;
+--muted:#6B7280;
 --ok:#16a34a;
 --danger:#ef4444;
 }
@@ -60,12 +74,10 @@ transition:box-shadow .15s ease, border-color .15s ease;
 }
 .input:focus{ border-color:var(--brand); box-shadow:0 0 0 4px rgba(10,108,255,.12); }
 
-/* Tabs */
 .tabs{ display:flex; gap:8px; background:#ffffff; border:1px solid #E5E7EB; padding:6px; border-radius:14px; }
 .tab{ padding:8px 12px; border-radius:10px; font-size:.85rem; color:#334155; border:1px solid transparent; }
 .tab--active{ background:linear-gradient(180deg, rgba(10,108,255,.18), rgba(10,108,255,.06)); color:#0b1220; border-color:rgba(10,108,255,.35); }
 
-/* Tarjeta de saldo */
 .balance-card{
 background: radial-gradient(160% 140% at -10% -30%, #0d2e64ff, #0d1b2a);
 color:#fff; border-radius:18px; padding:18px;
@@ -73,7 +85,6 @@ color:#fff; border-radius:18px; padding:18px;
 .balance-caption{ opacity:.9; font-size:.9rem; }
 .balance-amount{ font-weight:700; font-size:2rem; letter-spacing:.4px; }
 
-/* Tiles de acciones (Home) -> círculos con icono */
 .tiles{ display:grid; grid-template-columns: repeat(3, 1fr); gap:16px; justify-items:center; }
 .tile{
 display:grid; place-items:center;
@@ -86,7 +97,6 @@ transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
 .tile:hover{ transform:scale(1.05); box-shadow:0 6px 14px rgba(13,27,42,.1); border-color:#cbd5e1; }
 .tile .label{ display:none; }
 
-/* Iconos dentro del círculo (sin fondo blanco) */
 .tile-icon{
 width:40px; height:40px; display:block; object-fit:contain; background:transparent;
 mix-blend-mode:multiply; opacity:.9; filter:blur(0.2px);
@@ -94,12 +104,10 @@ transition:opacity .15s ease, transform .15s ease;
 }
 .tile:hover .tile-icon{ opacity:1; transform:scale(1.03); }
 
-/* Listas */
 .card{ background:#fff; border:1px solid #E5E7EB; border-radius:18px; padding:18px; }
 .card-title{ font-weight:600; color:#0b1220; }
 .card-muted{ color:#6b7280; }
 
-/* Clase por si la usas, no estorba */
 .sticky-bar{
 position:fixed; left:0; right:0; bottom:0; height:72px;
 display:flex; align-items:center; justify-content:center;
@@ -281,59 +289,70 @@ await Promise.all([fetchMe(), fetchBalance(), initTxs()]);
 })();
 }, [isAuthed]);
 
-function authHeaders() {
-return token ? { Authorization: `Bearer ${token}` } : {};
+function authHeaders(): Record<string, string> {
+const h: Record<string, string> = {};
+if (token) h.Authorization = `Bearer ${token}`;
+return h;
 }
 
 // ================= API calls (tus endpoints) =================
 async function fetchMe() {
 try {
-const { ok, data } = await apiFetch<{ user: User }>("/api/users/me", { headers: authHeaders() });
+const headers: Record<string, string> = { "Content-Type": "application/json" };
+if (typeof window !== "undefined") {
+const t = localStorage.getItem("token");
+if (t) headers.Authorization = `Bearer ${t}`;
+}
+const { ok, data } = await apiFetch<{ user: User }>("/api/users/me", { headers });
 if (ok && data?.user) setMe(data.user);
-} catch {}
+} catch (err) { console.error(err); }
 }
 
 async function fetchBalance() {
 try {
-const { ok, data } = await apiFetch<BalanceResp>("/api/wallet/balance", { headers: authHeaders() });
+const headers: Record<string, string> = { "Content-Type": "application/json" };
+if (typeof window !== "undefined") {
+const t = localStorage.getItem("token");
+if (t) headers.Authorization = `Bearer ${t}`;
+}
+const { ok, data } = await apiFetch<{ balance: number }>("/api/wallet/balance", { headers });
 if (ok && typeof data?.balance === "number") setBalance(data.balance);
-} catch {}
+} catch (e) { console.error(e); }
 }
 
+// ===================== TRANSACCIONES =====================
 async function initTxs() {
-setTxLoading(true);
-setTxEnd(false);
-setCursor(undefined);
 try {
-const { ok, data } = await apiFetch<TxListResp>("/api/transactions?limit=20", { headers: authHeaders() });
-if (ok && data) {
-setTxs(data.items || []);
+const { ok, data } = await apiFetch<{ items: Tx[]; nextCursor?: string }>(
+"/api/transactions",
+{ headers: authHeaders() }
+);
+if (ok && Array.isArray(data?.items)) {
+setTxs(data.items);
 setCursor(data.nextCursor);
-if (!data.nextCursor) setTxEnd(true);
-} else {
-setTxs([]);
-setTxEnd(true);
+setTxEnd(!data.nextCursor);
 }
-} finally {
-setTxLoading(false);
-}
+} catch (e) { console.error(e); }
 }
 
 async function loadMoreTxs() {
 if (txLoading || txEnd) return;
 setTxLoading(true);
 try {
-const qs = new URLSearchParams({ limit: "20" });
-if (cursor) qs.set("cursor", cursor);
-const { ok, data } = await apiFetch<TxListResp>(`/api/transactions?${qs.toString()}`, { headers: authHeaders() });
-if (ok && data) {
-setTxs((p) => [...p, ...(data.items || [])]);
+const url = cursor
+? `/api/transactions?cursor=${encodeURIComponent(cursor)}`
+: "/api/transactions";
+const { ok, data } = await apiFetch<{ items: Tx[]; nextCursor?: string }>(
+url,
+{ headers: authHeaders() }
+);
+if (ok && Array.isArray(data?.items)) {
+setTxs(prev => [...prev, ...data.items]);
 setCursor(data.nextCursor);
-if (!data.nextCursor) setTxEnd(true);
+setTxEnd(!data.nextCursor);
 }
-} finally {
-setTxLoading(false);
-}
+} catch (e) { console.error(e); }
+finally { setTxLoading(false); }
 }
 
 // ================= Auth =================
@@ -515,10 +534,8 @@ function stopNear() {
 setNearOn(false);
 setNearItems([]);
 setGeo(null);
-// opcional: borrar presencia en backend
 apiFetch("/api/near/me", { method: "DELETE", headers: authHeaders() }).catch(()=>{});
 }
-// pulso cada 20s mientras esté activo
 useEffect(() => {
 if (!nearOn) return;
 const beat = setInterval(() => publishHeartbeat().catch(()=>{}), 20000);
@@ -527,7 +544,6 @@ return () => { clearInterval(beat); clearInterval(poll); };
 }, [nearOn, geo?.lat, geo?.lng]);
 
 function useNearPay(handle: string) {
-// Rellena flujo de envío con el usuario elegido de cerca
 setRecipientOpen(false);
 setConfirmOpen(true);
 _overrideConfirm(async () => {
@@ -749,7 +765,6 @@ tx.type === "in" || tx.note?.toLowerCase().includes("topup")
 {/* ENVIAR */}
 {view === "send" && (
 <section className="space-y-6">
-{/* === Formulario Enviar === */}
 <section className="card shadow space-y-4">
 <h2 className="card-title">Enviar dinero</h2>
 <form onSubmit={(e)=>e.preventDefault()} className="space-y-4">
@@ -765,7 +780,7 @@ tx.type === "in" || tx.note?.toLowerCase().includes("topup")
 <p className="text-xs card-muted">Toca Continuar para confirmar y elegir destinatario.</p>
 </section>
 
-{/* === Pagar por cercanía (beta) ==== */}
+{/* Pagar por cercanía (beta) */}
 <div className="card shadow space-y-3">
 <div className="flex items-center justify-between">
 <h3 className="card-title">Pagar por cercanía (beta)</h3>
@@ -854,7 +869,6 @@ Pagar
 </section>
 )}
 
-{/* Espaciador para la barra fija (cuando aplica) */}
 {(view === "send" || view === "topup" || view === "withdraw") && (
 <div style={{ height: 88 }} />
 )}
@@ -923,7 +937,7 @@ return (
 <h3 className="font-semibold">Selecciona destinatario</h3>
 <button className="text-sm btn-outline" onClick={onClose}>Cerrar</button>
 </div>
-<SearchUser value={to} onChange={setTo} token={token} placeholder="@usuario" />
+<SearchUser value={to} onChange={setTo} placeholder="@usuario" />
 <button className="btn-primary w-full" onClick={() => to && onPick(to)}>
 Enviar a {to || "..."}
 </button>

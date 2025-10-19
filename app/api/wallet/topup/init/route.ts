@@ -23,7 +23,7 @@ const referencia = `${pad(rnd(99999999), 8)}-${pad(rnd(9999), 4)}`;
 return { ok: true, method: "seven", amount, expiresAt, seven: { referencia } };
 }
 
-export async function POST(req) {
+export async function POST(req: Request) {
 const body = await req.json().catch(() => ({}));
 const { amount, method } = body as { amount?: number; method?: CashMethod };
 

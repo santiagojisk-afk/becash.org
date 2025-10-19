@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import apiFetch from "@/lib/http";
+import { httpsFetch as apiFetch } from "@/lib/https";
 
 type Props = {
 open: boolean;
@@ -22,9 +22,8 @@ e.preventDefault();
 setError(null);
 setOkMsg(null);
 
-const token = (typeof window !== "undefined")
-? localStorage.getItem("qash_demo_token")
-: null;
+const token =
+typeof window !== "undefined" ? localStorage.getItem("qash_demo_token") : null;
 
 if (!token) {
 setError("Sesión no válida. Inicia sesión de nuevo.");
@@ -33,28 +32,37 @@ return;
 
 try {
 setSaving(true);
-const { ok, body, message } = await apiFetch<{ ok: boolean; message?: string }>(
+
+const { ok, data } = await apiFetch<{ ok?: boolean; message?: string }>(
 "/api/auth/change-password",
 {
 method: "POST",
-headers: { Authorization: `Bearer ${token}` },
-body: { oldPassword, newPassword },
+headers: {
+"Content-Type": "application/json",
+Authorization: `Bearer ${token}`,
+},
+body: JSON.stringify({
+currentPassword: oldPassword,
+newPassword,
+}),
 }
 );
 
-if (!ok) {
-setError((body as any)?.message || message || "No se pudo cambiar la contraseña");
+if (!ok || data?.ok === false) {
+setError((data as any)?.message || "No se pudo cambiar la contraseña");
 return;
 }
 
-setOkMsg((body as any)?.message || "Contraseña cambiada correctamente");
+setOkMsg((data as any)?.message || "Contraseña cambiada correctamente");
 setOldPassword("");
 setNewPassword("");
-// Cierra después de 1.2s para que el usuario vea el mensaje
 setTimeout(() => {
 setOkMsg(null);
 onClose();
 }, 1200);
+} catch (err) {
+console.error(err);
+setError("Error de red");
 } finally {
 setSaving(false);
 }
@@ -65,7 +73,9 @@ return (
 <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow">
 <div className="mb-3 flex items-center justify-between">
 <h3 className="text-lg font-semibold">Cambiar contraseña</h3>
-<button className="text-sm btn-outline" onClick={onClose}>Cerrar</button>
+<button className="text-sm btn-outline" onClick={onClose}>
+Cerrar
+</button>
 </div>
 
 <form onSubmit={onSubmit} className="space-y-4">

@@ -1,164 +1,152 @@
+// src/components/SearchUser.tsx
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { httpsFetch as apiFetch } from "@/lib/https";
 
-type UserLite = {
-_id?: string;
-id?: string;
-username: string;
+export type SearchUserPick = {
+username?: string; // "@dan" o "dan"
+handle?: string; // a veces tu API usa "handle"
+email?: string;
 fullName?: string;
 avatarUrl?: string;
 };
 
 type Props = {
-/** Token JWT (opcional) para llamar al backend */
-token?: string | null;
-
-/** Si lo pasas, el input es controlado */
-value?: string;
-onChange?: (v: string) => void;
-
-/** Se ejecuta al elegir un usuario */
-onSelect?: (user: UserLite) => void;
-
+value: string;
+onChange: (v: string) => void;
+onPick?: (u: { username?: string; handle?: string; email?: string }) => void; // 👈 ESTA LÍNEA NUEVA
 placeholder?: string;
-className?: string;
 };
 
-/**
-* Buscador de usuarios por @handle
-* - Evita errores si no envías onSelect (usa noop).
-* - Funciona en modo controlado o no controlado.
-*/
 export default function SearchUser({
-token = null,
 value,
 onChange,
-onSelect = () => {}, // 👈 evita "onSelect is not a function"
-placeholder = "@usuario",
-className = "",
+onPick,
+placeholder = "@usuario o correo",
+token,
 }: Props) {
-// modo controlado o interno
-const [inner, setInner] = useState("");
-const query = value ?? inner;
-
+const [q, setQ] = useState(value);
+const [items, setItems] = useState<SearchUserPick[]>([]);
 const [loading, setLoading] = useState(false);
-const [items, setItems] = useState<UserLite[]>([]);
-const [error, setError] = useState<string | null>(null);
+const [open, setOpen] = useState(false);
+const timer = useRef<number | null>(null);
 
-const controllerRef = useRef<AbortController | null>(null);
+// Mantener sincronizado con el valor que te pasan
+useEffect(() => setQ(value), [value]);
 
-// Normaliza respuesta del backend a array de usuarios
-function pickArray(resp: any): any[] {
-if (!resp) return [];
-// Tu backend: { ok, results: [...] }
-if (Array.isArray(resp.results)) return resp.results;
-// Variante previa: { users: [...] }
-if (Array.isArray(resp.users)) return resp.users;
-// Otras variantes defensivas:
-if (Array.isArray(resp.items)) return resp.items;
-if (Array.isArray(resp.data)) return resp.data;
-return [];
-}
-
-// Búsqueda con debounce simple
+// Buscar con debounce
 useEffect(() => {
-const raw = String(query || "").trim().replace(/^@/, "");
-if (!raw) {
+if (timer.current) window.clearTimeout(timer.current);
+if (!q || q.trim().length < 1) {
 setItems([]);
-setError(null);
+setOpen(false);
 return;
 }
+timer.current = window.setTimeout(fetchUsers, 250);
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, [q]);
 
-setLoading(true);
-setError(null);
-
-// cancelar fetch anterior
-controllerRef.current?.abort();
-const ctrl = new AbortController();
-controllerRef.current = ctrl;
-
-const t = setTimeout(async () => {
+async function fetchUsers() {
 try {
-const url = `/api/users?search=${encodeURIComponent(raw)}&limit=20`;
-const res = await fetch(url, {
-headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-signal: ctrl.signal,
-});
-const data = await res.json().catch(() => ({}));
-if (!res.ok || data?.ok === false) {
-throw new Error(data?.message || "No se pudo buscar");
-}
+setLoading(true);
+const headers: Record<string, string> = { "Content-Type": "application/json" };
+const t =
+token ??
+(typeof window !== "undefined" ? localStorage.getItem("qash_demo_token") : null);
+if (t) headers.Authorization = `Bearer ${t}`;
 
-const arr = pickArray(data);
-const list: UserLite[] = arr
-.map((u: any) => ({
-_id: u?._id ?? u?.id,
-id: u?.id ?? u?._id,
-username: String(u?.username || u?.handle || "").trim(),
-fullName: u?.fullName || "",
-avatarUrl: u?.avatarUrl || "",
-}))
-.filter((u: UserLite) => u.username);
+// Ajusta el endpoint/param según tu backend
+const { ok, data } = await apiFetch<{ items?: SearchUserPick[] }>(
+`/api/users/search?q=${encodeURIComponent(q)}`,
+{ headers }
+);
 
-setItems(list);
-} catch (e: any) {
-if (e?.name !== "AbortError") setError(e?.message || "Error");
+if (!ok) {
 setItems([]);
+setOpen(false);
+return;
+}
+const list = (data as any)?.items || [];
+setItems(list);
+setOpen(list.length > 0);
 } finally {
 setLoading(false);
 }
-}, 250);
+}
 
-return () => {
-clearTimeout(t);
-ctrl.abort();
-};
-}, [query, token]);
-
-const handleChange = (v: string) => {
-onChange ? onChange(v) : setInner(v);
-};
+function pick(u: SearchUserPick) {
+// priorizar username/handle; si no, email
+const h = (u.username || u.handle || "").replace(/^@/, "");
+const val = h ? `@${h}` : (u.email || "");
+if (val) onChange(val);
+setOpen(false);
+setItems([]);
+onPick?.(u);
+}
 
 return (
-<div className={className}>
+<div className="relative">
 <input
-className="input w-full"
+className="h-11 w-full rounded-xl border border-slate-200 px-3"
 placeholder={placeholder}
-value={query}
-onChange={(e) => handleChange(e.target.value)}
+value={q}
+onChange={(e) => {
+setQ(e.target.value);
+onChange(e.target.value);
+}}
+onFocus={() => { if (items.length) setOpen(true); }}
+onBlur={() => setTimeout(() => setOpen(false), 150)}
+autoComplete="off"
 />
 
+{/* Dropdown */}
+{open && (
+<div className="absolute z-20 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow">
 {loading && (
-<div className="mt-2 text-xs text-gray-500">Buscando…</div>
+<div className="px-3 py-2 text-sm text-slate-500">Buscando…</div>
 )}
-{error && (
-<div className="mt-2 text-xs text-red-600">Error: {error}</div>
+{!loading && items.length === 0 && (
+<div className="px-3 py-2 text-sm text-slate-500">Sin resultados</div>
 )}
-
-{!!items.length && (
-<ul className="mt-2 rounded-lg border border-gray-200 divide-y divide-gray-100 bg-white overflow-hidden">
-{items.map((u) => (
-<li
-key={u.id || u._id || u.username}
-className="cursor-pointer px-3 py-2 hover:bg-gray-50 flex items-center gap-2"
-onClick={() => onSelect(u)} // ✅ ya no truena aunque no pases onSelect
+{!loading &&
+items.map((u, i) => (
+<button
+key={(u.username || u.email || String(i)) + i}
+type="button"
+className="flex w-full items-center gap-3 px-3 py-2 hover:bg-slate-50 text-left"
+onMouseDown={(e) => e.preventDefault()}
+onClick={() => pick(u)}
 >
-<img
-src={u.avatarUrl || "/default-profile.png"}
-alt={u.username}
-className="w-7 h-7 rounded-full object-cover"
-/>
-<div className="min-w-0">
-<div className="text-sm font-medium truncate">@{u.username}</div>
-{u.fullName && (
-<div className="text-xs text-gray-500 truncate">{u.fullName}</div>
+<Avatar size={28} url={u.avatarUrl} name={u.fullName || u.username || u.email || "U"} />
+<div className="truncate">
+<div className="text-sm font-medium">
+{u.fullName || u.username || u.email}
+</div>
+<div className="text-xs text-slate-500">
+{u.username ? `@${u.username.replace(/^@/, "")}` : u.email}
+</div>
+</div>
+</button>
+))}
+</div>
 )}
 </div>
-</li>
-))}
-</ul>
-)}
+);
+}
+
+function Avatar({ url, name, size = 28 }: { url?: string; name?: string; size?: number }) {
+const initials = (name || "U").split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
+const cls = `rounded-full object-cover border border-slate-200`;
+return url ? (
+// eslint-disable-next-line @next/next/no-img-element
+<img src={url} alt="avatar" width={size} height={size} className={cls} />
+) : (
+<div
+style={{ width: size, height: size }}
+className="rounded-full bg-slate-100 text-slate-700 grid place-items-center text-xs font-semibold border border-slate-200"
+>
+{initials}
 </div>
 );
 }

@@ -2,12 +2,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Tx } from "@/lib/services";
-import SecureConfirm from "@/components/SecureConfirm"; // usa el tuyo
-import SearchUser from "@/components/SearchUser"; // opcional si ya lo tienes
+import { httpsFetch as apiFetch } from "@/lib/https";
+import SecureConfirm from "@/components/SecureConfirm";
+import SearchUser from "@/components/SearchUser"; // si existe
 
 type Props = {
-onDone?: () => void; // callback para refrescar saldo/movimientos después del envío
+onDone?: () => void; // refrescar después del envío
 };
 
 export default function SendFlow({ onDone }: Props) {
@@ -18,7 +18,6 @@ const [confirmOpen, setConfirmOpen] = useState(false);
 const [sending, setSending] = useState(false);
 const [me, setMe] = useState<any>(null);
 
-// lee usuario demo si lo tienes guardado (no obligatorio)
 useEffect(() => {
 try {
 const raw = localStorage.getItem("qash_demo_user");
@@ -36,7 +35,6 @@ setAmount(String(v));
 }
 
 function handleSearchPick(u: { username?: string; email?: string }) {
-// Prioriza username; si no hay, usa email
 if (u?.username) setTo(u.username.startsWith("@") ? u.username : "@" + u.username);
 else if (u?.email) setTo(u.email);
 }
@@ -50,7 +48,6 @@ setConfirmOpen(true);
 }
 
 async function doTransfer() {
-// Ejecuta envío DESPUÉS de confirmar (SecureConfirm llama a onConfirm)
 try {
 setSending(true);
 const payload = {
@@ -59,16 +56,27 @@ amount: Number(amount),
 note: note?.trim() || undefined,
 };
 
-const r = await Tx.transfer(payload);
-if (!r.ok) {
-alert(r.body?.message || "No se pudo enviar");
+const headers: Record<string, string> = { "Content-Type": "application/json" };
+const t = typeof window !== "undefined" ? localStorage.getItem("qash_demo_token") : null;
+if (t) headers.Authorization = `Bearer ${t}`;
+
+const { ok, data } = await apiFetch<{ tx?: any; message?: string }>(
+"/api/transactions/transfer",
+{
+method: "POST",
+headers,
+body: JSON.stringify(payload),
+}
+);
+
+if (!ok) {
+alert((data as any)?.message || "No se pudo enviar");
 return;
 }
 
-// limpieza de forma
+// limpiar formulario
 setNote("");
 setAmount("");
-// mantenemos el 'to' por si quiere repetir envío
 alert("Envío realizado 💸");
 onDone?.();
 } finally {
@@ -88,22 +96,15 @@ Enviar desde <strong>{me?.username ? `@${me.username}` : "tu BeQash"}</strong>
 {/* Buscar/ingresar destinatario */}
 <div className="space-y-2">
 <label className="text-xs text-slate-500">Para</label>
-{/* Si tienes SearchUser, lo dejas. Si no, comenta esta línea */}
-{typeof SearchUser === "function" ? (
 <SearchUser
 placeholder="@usuario o correo"
-onPick={handleSearchPick}
 value={to}
-onChange={(v: string) => setTo(v)}
+onChange={setTo}
+onPick={(u) => {
+const handle = (u.username || u.handle || "").replace(/^@/, "");
+setTo(handle ? `@${handle}` : (u.email || to));
+}}
 />
-) : (
-<input
-className="h-11 w-full rounded-xl border border-slate-200 px-3"
-placeholder="@usuario o correo"
-value={to}
-onChange={(e) => setTo(e.target.value)}
-/>
-)}
 </div>
 
 {/* Monto */}
@@ -116,7 +117,7 @@ inputMode="decimal"
 value={amount}
 onChange={(e) => setAmount(e.target.value)}
 />
-{/* Presets compactos */}
+{/* Presets */}
 <div className="flex flex-wrap gap-2">
 {[100, 200, 500, 1000].map((v) => (
 <button
@@ -153,7 +154,7 @@ className="h-12 w-full rounded-xl bg-blue-600 text-white font-medium shadow-sm d
 </button>
 </div>
 
-{/* Confirmación segura (usa tu componente actual) */}
+{/* Confirmación segura */}
 <SecureConfirm
 open={confirmOpen}
 onClose={() => setConfirmOpen(false)}
@@ -167,9 +168,7 @@ onConfirm={doTransfer}
 function normalizeTo(to: string) {
 const t = (to || "").trim();
 if (!t) return t;
-// si parece username, asegúrate que empiece con @
-if (/^[A-Za-z0-9._-]+$/.test(t)) return "@" + t;
+if (/^[A-Za-z0-9._-]+$/.test(t)) return "@" + t; // si parece username sin @
 if (/^@/.test(t)) return t;
-// si es email o ya válido, lo dejas igual
-return t;
+return t; // email u otro identificador
 }

@@ -2,7 +2,7 @@ import { API_BASE, readBody , jsonOrText,authHeaders, pass } from "./_utils";
 
 export const dynamic = "force-dynamic"; // no cache
 
-export async function POST(req) {
+export async function POST(req: Request) {
 // MUY IMPORTANTE: pasar el cuerpo crudo (para verificar firmas)
 const raw = await req.arrayBuffer();
 
